@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Mapa de Seguimiento</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+  </head>
+  <body>
+    <div id="map" style="height: 500px"></div>
+
+    <script>
+      const map = L.map("map").setView([0, 0], 2);
+      const markers = {};
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(
+        map
+      );
+
+      const socket = io();
+      socket.on("device_locations", (deviceLocations) => {
+        // Limpiar marcadores anteriores
+        Object.values(markers).forEach((marker) => map.removeLayer(marker));
+
+        // Agregar nuevos marcadores
+        Object.entries(deviceLocations).forEach(([deviceId, location]) => {
+          const marker = L.marker([location.latitude, location.longitude])
+            .bindPopup(`Dispositivo: ${deviceId}`)
+            .addTo(map);
+
+          markers[deviceId] = marker;
+        });
+      });
+    </script>
+  </body>
+</html>
