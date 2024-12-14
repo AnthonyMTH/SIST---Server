@@ -39,6 +39,7 @@ io.on("connection", (socket) => {
   socket.on("resolve_alert", (deviceId) => {
     delete activeAlerts[deviceId];
     io.emit("active_alerts", activeAlerts);
+    io.emit("alert_resolved", deviceId);
   });
 
   socket.on("disconnect", () => {

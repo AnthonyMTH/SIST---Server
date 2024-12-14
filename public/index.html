@@ -22,6 +22,9 @@
         padding: 5px;
         border: 1px solid red;
         background-color: #ffe6e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
       }
     </style>
   </head>
@@ -69,6 +72,15 @@
           listItem.textContent = `Dispositivo: ${deviceId} | Lat: ${alert.latitude}, Lng: ${alert.longitude} | Hora: ${new Date(
             alert.timestamp
           ).toLocaleTimeString()}`;
+
+          // Crear botón para resolver la alerta
+          const resolveButton = document.createElement("button");
+          resolveButton.textContent = "Marcar como resuelto";
+          resolveButton.onclick = () => {
+            socket.emit("resolve_alert", deviceId); // Emitir el evento para resolver la alerta
+          };
+
+          listItem.appendChild(resolveButton);
           alertList.appendChild(listItem);
         });
       });
