@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Mapa de Seguimiento</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+      #alert-list {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      #alert-list li {
+        margin: 5px 0;
+        list-style: none;
+        padding: 5px;
+        border: 1px solid red;
+        background-color: #ffe6e6;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map" style="height: 500px"></div>
+    <h3>Alertas Activas</h3>
+    <ul id="alert-list"></ul>
+
+    <script>
+      const map = L.map("map").setView([0, 0], 2);
+      const markers = {};
+      const alertMarkers = {};
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(
+        map
+      );
+
+      const socket = io();
+
+      // Manejar alertas activas
+      socket.on("active_alerts", (activeAlerts) => {
+        const alertList = document.getElementById("alert-list");
+        alertList.innerHTML = ""; // Limpiar la lista de alertas
+
+        // Limpiar marcadores de alertas anteriores
+        Object.values(alertMarkers).forEach((marker) => map.removeLayer(marker));
+        Object.keys(alertMarkers).forEach((key) => delete alertMarkers[key]);
+
+        // Agregar nuevas alertas
+        Object.entries(activeAlerts).forEach(([deviceId, alert]) => {
+          // Crear o actualizar marcador en el mapa
+          const alertMarker = L.marker([alert.latitude, alert.longitude], {
+            icon: L.icon({
+              iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
+              iconSize: [32, 32],
+            }),
+          })
+            .bindPopup(`Alerta activa: Dispositivo ${deviceId}`)
+            .addTo(map);
+
+          alertMarkers[deviceId] = alertMarker;
+
+          // Mostrar alerta en la lista
+          const listItem = document.createElement("li");
+          listItem.textContent = `Dispositivo: ${deviceId} | Lat: ${alert.latitude}, Lng: ${alert.longitude} | Hora: ${new Date(
+            alert.timestamp
+          ).toLocaleTimeString()}`;
+          alertList.appendChild(listItem);
+        });
+      });
+
+      // Simular una alerta de prueba desde el cliente
+      setTimeout(() => {
+        socket.emit("alert", {
+          deviceId: "TestDevice123",
+          latitude: 40.7128,
+          longitude: -74.006,
+          timestamp: Date.now(),
+        });
+      }, 5000);
+    </script>
+  </body>
+</html>

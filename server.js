@@ -1,59 +1,52 @@
 const express = require("express");
 const http = require("http");
-const socketIo = require("socket.io");
-const cors = require("cors");
+const { Server } = require("socket.io");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
-// Almacén de ubicaciones de dispositivos en memoria
-const deviceLocations = {};
-// Configuración de CORS
-const io = socketIo(server, {
-  cors: {
-    origin: "*", // En producción, usar dominio específico
-    methods: ["GET", "POST"],
-    allowedHeaders: ["*"],
-  },
-  transports: ["websocket", "polling"],
+const io = new Server(server);
+
+// Configurar carpeta estática para archivos HTML, CSS y JS
+app.use(express.static(path.join(__dirname, "public")));
+
+// Ruta principal para el index.html
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Middleware de CORS
-app.use(
-  cors({
-    origin: "*", // Ajustar en producción
-    methods: ["GET", "POST"],
-  })
-);
+// Aquí irán tus funciones de manejo de sockets
+const deviceLocations = {};
+const activeAlerts = {};
 
+// Manejo de conexiones con Socket.IO
 io.on("connection", (socket) => {
-  console.log("Nuevo cliente conectado");
+  console.log("Usuario conectado");
 
-  socket.on("location_update", (data) => {
-    console.log("Ubicación recibida:", data);
+  // Enviar ubicaciones actuales al cliente
+  socket.emit("device_locations", deviceLocations);
 
-    const { deviceId, latitude, longitude, timestamp } = data;
+  // Escuchar alertas desde los dispositivos
+  socket.on("alert", (data) => {
+    console.log('Alert received:', data);
+    // Usar un identificador único, como 'deviceId', como clave
+    activeAlerts[data.deviceId] = data; // Añadir o actualizar la alerta usando el deviceId como clave
 
-    // Almacenar ubicación del dispositivo
-    deviceLocations[deviceId] = {
-      latitude,
-      longitude,
-      timestamp,
-    };
+    io.emit('active_alerts', activeAlerts); // Emitir las alertas activas a todos los clientes conectados
+  });
 
-    // Emitir actualización a todos los clientes
-    io.emit("device_locations", deviceLocations);
+  // Resolver alertas
+  socket.on("resolve_alert", (deviceId) => {
+    delete activeAlerts[deviceId];
+    io.emit("active_alerts", activeAlerts);
   });
 
   socket.on("disconnect", () => {
-    console.log("Cliente desconectado");
+    console.log("Usuario desconectado");
   });
 });
 
-app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/index.html");
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+// Iniciar servidor
+server.listen(3000, () => {
+  console.log("Servidor corriendo en http://localhost:3000");
 });
