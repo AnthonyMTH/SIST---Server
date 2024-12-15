@@ -9,6 +9,9 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <style>
+      #map {
+        height: 500px;
+      }
       #alert-list {
         margin-top: 20px;
         padding: 10px;
@@ -26,21 +29,34 @@
         justify-content: space-between;
         align-items: center;
       }
+      #notification {
+        display: none;
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background-color: #ffcc00;
+        color: black;
+        padding: 10px;
+        border-radius: 5px;
+        z-index: 1000; /* Asegura que esté encima del mapa */
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+      }
     </style>
   </head>
   <body>
-    <div id="map" style="height: 500px"></div>
+    <div id="map"></div>
     <h3>Alertas Activas</h3>
     <ul id="alert-list"></ul>
+    <div id="notification">Nueva alerta recibida</div>
 
     <script>
       const map = L.map("map").setView([0, 0], 2);
       const markers = {};
       const alertMarkers = {};
+      let resolvedDevices = new Set(); // Dispositivos cuyas alertas han sido resueltas
+      let notifiedDevices = new Set(); // Dispositivos ya notificados
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(
-        map
-      );
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
       const socket = io();
 
@@ -55,34 +71,57 @@
 
         // Agregar nuevas alertas
         Object.entries(activeAlerts).forEach(([deviceId, alert]) => {
-          // Crear o actualizar marcador en el mapa
-          const alertMarker = L.marker([alert.latitude, alert.longitude], {
-            icon: L.icon({
-              iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
-              iconSize: [32, 32],
-            }),
-          })
-            .bindPopup(`Alerta activa: Dispositivo ${deviceId}`)
-            .addTo(map);
+          if (!resolvedDevices.has(deviceId)) {
+            // Crear o actualizar marcador en el mapa
+            const alertMarker = L.marker([alert.latitude, alert.longitude], {
+              icon: L.icon({
+                iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
+                iconSize: [32, 32],
+              }),
+            })
+              .bindPopup(`Alerta activa: Dispositivo ${deviceId}`)
+              .addTo(map);
 
-          alertMarkers[deviceId] = alertMarker;
+            alertMarkers[deviceId] = alertMarker;
 
-          // Mostrar alerta en la lista
-          const listItem = document.createElement("li");
-          listItem.textContent = `Dispositivo: ${deviceId} | Lat: ${alert.latitude}, Lng: ${alert.longitude} | Hora: ${new Date(
-            alert.timestamp
-          ).toLocaleTimeString()}`;
+            // Mostrar alerta en la lista
+            const listItem = document.createElement("li");
+            listItem.textContent = `Dispositivo: ${deviceId} | Lat: ${alert.latitude}, Lng: ${alert.longitude} | Hora: ${new Date(
+              alert.timestamp
+            ).toLocaleTimeString()}`;
 
-          // Crear botón para resolver la alerta
-          const resolveButton = document.createElement("button");
-          resolveButton.textContent = "Marcar como resuelto";
-          resolveButton.onclick = () => {
-            socket.emit("resolve_alert", deviceId); // Emitir el evento para resolver la alerta
-          };
+            // Crear botón para resolver la alerta
+            const resolveButton = document.createElement("button");
+            resolveButton.textContent = "Marcar como resuelto";
+            resolveButton.onclick = () => {
+              socket.emit("resolve_alert", deviceId); // Emitir el evento para resolver la alerta
+              resolvedDevices.add(deviceId); // Marcar como resuelto
+              notifiedDevices.delete(deviceId); // Permitir nuevas notificaciones para este dispositivo
+            };
 
-          listItem.appendChild(resolveButton);
-          alertList.appendChild(listItem);
+            listItem.appendChild(resolveButton);
+            alertList.appendChild(listItem);
+
+            // Mostrar notificación solo si el dispositivo no ha sido notificado antes
+            if (!notifiedDevices.has(deviceId)) {
+              notifiedDevices.add(deviceId); // Marcar como notificado
+              showNotification();
+            }
+          }
         });
+      });
+
+      function showNotification() {
+        const notificationDiv = document.getElementById("notification");
+        notificationDiv.style.display = "block"; // Mostrar notificación
+        setTimeout(() => {
+          notificationDiv.style.display = "none"; // Ocultar después de 3 segundos
+        }, 3000);
+      }
+
+      // Escuchar el evento de resolución desde el servidor
+      socket.on("alert_resolved", (deviceId) => {
+        resolvedDevices.delete(deviceId); // Eliminar el dispositivo de los resueltos
       });
 
       // Simular una alerta de prueba desde el cliente

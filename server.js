@@ -15,7 +15,7 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Aquí irán tus funciones de manejo de sockets
+// Almacenar datos de ubicaciones y alertas
 const deviceLocations = {};
 const activeAlerts = {};
 
@@ -28,18 +28,20 @@ io.on("connection", (socket) => {
 
   // Escuchar alertas desde los dispositivos
   socket.on("alert", (data) => {
-    console.log('Alert received:', data);
-    // Usar un identificador único, como 'deviceId', como clave
-    activeAlerts[data.deviceId] = data; // Añadir o actualizar la alerta usando el deviceId como clave
+    console.log("Alerta recibida:", data);
 
-    io.emit('active_alerts', activeAlerts); // Emitir las alertas activas a todos los clientes conectados
+    // Usar un identificador único, como 'deviceId', como clave
+    activeAlerts[data.deviceId] = data;
+
+    // Emitir las alertas activas a todos los clientes conectados
+    io.emit("active_alerts", activeAlerts);
   });
 
   // Resolver alertas
   socket.on("resolve_alert", (deviceId) => {
-    delete activeAlerts[deviceId];
-    io.emit("active_alerts", activeAlerts);
-    io.emit("alert_resolved", deviceId);
+    delete activeAlerts[deviceId]; // Eliminar alerta resuelta
+    io.emit("active_alerts", activeAlerts); // Actualizar clientes
+    io.emit("alert_resolved", deviceId); // Informar sobre resolución
   });
 
   socket.on("disconnect", () => {
